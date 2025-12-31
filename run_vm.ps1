@@ -1,37 +1,48 @@
 param (
     [string]$Owner = "Admin",
-    [string]$MachineID = "Windows-VM"
+    [string]$MachineID = "Zun-VM"
 )
 
-# 1. Ghi lai moc thoi gian bat dau duy nhat 1 lan
+# 1. Ghi lại mốc thời gian bắt đầu duy nhất 1 lần
 $startTime = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
-
 $url = "https://zunrdp-default-rtdb.asia-southeast1.firebasedatabase.app/vms/$MachineID.json"
+
+Write-Host "Agent started for $MachineID"
 
 while($true) {
     try {
-        # Lay IP tu Tailscale
+        # 2. Kiểm tra lệnh từ Firebase
+        $currentData = Invoke-RestMethod -Uri $url -Method Get
+        if ($currentData.command -eq "kill") {
+            Write-Host "NHẬN LỆNH TẮT MÁY! Đang sập nguồn..."
+            # Xóa lệnh kill trước khi tắt để tránh vòng lặp
+            $resetCmd = @{ command = "" } | ConvertTo-Json
+            Invoke-RestMethod -Uri $url -Method Patch -Body $resetCmd
+            
+            # Thực hiện tắt máy ngay lập tức
+            shutdown /s /f /t 0
+            break
+        }
+
+        # 3. Gửi tín hiệu Online & Uptime
         $ip = (tailscale ip -4)
         $lastSeen = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
 
-        # Dong goi du lieu de Web hien thi Uptime va Owner
         $data = @{
             id        = $MachineID
             ip        = $ip
             owner     = $Owner
             startTime = $startTime
             lastSeen  = $lastSeen
-            os        = "Windows Server"
+            command   = ""
         } | ConvertTo-Json
 
-        # Gui len Firebase
-        Invoke-RestMethod -Uri $url -Method Put -Body $data
+        # Dùng PATCH để không đè lên lệnh command nếu Web vừa gửi
+        Invoke-RestMethod -Uri $url -Method Patch -Body $data
     }
     catch {
-        Write-Host "Loi gui tin hieu: $_"
+        Write-Host "Lỗi kết nối Firebase, đang thử lại..."
     }
-    
-    # Moi 10 giay gui tin hieu 1 lan de tiet kiem bang thong
-    Start-Sleep -Seconds 10
+    Start-Sleep -Seconds 7
 }
 
