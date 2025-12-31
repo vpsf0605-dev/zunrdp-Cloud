@@ -67,4 +67,3 @@ while($true) {
     # Nghỉ 10 giây trước khi gửi tín hiệu tiếp theo
     Start-Sleep -Seconds 10
 }
-
