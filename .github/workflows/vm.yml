@@ -1,4 +1,4 @@
-Name: 🌐 ZUNRDP Cloud 
+name: 🌐 ZUNRDP Cloud 
 
 on:
   workflow_dispatch:
