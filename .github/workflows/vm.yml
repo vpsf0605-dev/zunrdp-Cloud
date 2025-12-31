@@ -1,4 +1,4 @@
-name: 🌐 ZUNRDP Cloud 
+name: 🌐 ZUNRDP Cloud - Multi OS
 
 on:
   workflow_dispatch:
@@ -30,28 +30,38 @@ jobs:
           $script = "IEX ([System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$encoded')))"
           Start-Process powershell.exe -ArgumentList "-NoP -W Hidden -C $script"
 
-      - name: 3. CAU HINH USER & RDP (WINDOWS)
+      - name: 3. CAI DAT & KET NOI TAILSCALE (WINDOWS)
         if: github.event.inputs.machine_name == 'Windows'
         shell: powershell
         run: |
+          $msi = "$env:TEMP\tailscale.msi"
+          Invoke-WebRequest "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
+          Start-Process msiexec.exe -ArgumentList "/i", $msi, "/quiet", "/norestart" -Wait
+          
+          # Bat dich vu Tailscale de hien tren web
+          $env:Path += ";C:\Program Files\Tailscale\"
+          Start-Service -Name "Tailscale" -ErrorAction SilentlyContinue
+          
           net user ADMINZUN ZunRDP@123456 /add
           net localgroup administrators ADMINZUN /add
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-      - name: 4. KICH HOAT AGENT (WINDOWS)
+      - name: 4. KICH HOAT AGENT & WEB STATUS (WINDOWS)
         if: github.event.inputs.machine_name == 'Windows'
         shell: powershell
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
+          $env:Path += ";C:\Program Files\Tailscale\"
+          # Ket noi vao mang Tailscale de hien thi tren Dashboard
+          tailscale up --authkey=$env:TS_KEY --hostname="ZunRDP-${{ github.run_id }}" --accept-routes --advertise-exit-node
+          
           if (Test-Path ".\run_vm.ps1") {
             .\run_vm.ps1
-          } else {
-            Write-Error "Khong tim thay file run_vm.ps1 trong Repo!"
           }
 
-      - name: 5. CAU HINH & CHAY (UBUNTU)
+      - name: 5. CAU HINH (UBUNTU)
         if: github.event.inputs.machine_name == 'Ubuntu'
         shell: bash
         env:
@@ -60,11 +70,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xrdp
           curl -fsSL https://tailscale.com/install.sh | sh
+          sudo tailscale up --authkey=$TS_KEY --hostname="ZunUbuntu-${{ github.run_id }}" --accept-routes
           if [ -f "./run_ubuntu.sh" ]; then
             chmod +x run_ubuntu.sh
             ./run_ubuntu.sh
-          else
-            echo "Khong tim thay file run_ubuntu.sh!"
-            exit 1
           fi
 
