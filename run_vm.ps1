@@ -3,7 +3,7 @@ param (
     [string]$MachineID = "Zun-VM"
 )
 
-# 1. Ghi lại mốc thời gian bắt đầu duy nhất 1 lần
+# 1. Start time setup
 $startTime = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
 $url = "https://zunrdp-default-rtdb.asia-southeast1.firebasedatabase.app/vms/$MachineID.json"
 
@@ -11,37 +11,36 @@ Write-Host "Agent started for $MachineID"
 
 while($true) {
     try {
-        # 2. Kiểm tra lệnh từ Firebase
+        # 2. Check for kill command
         $currentData = Invoke-RestMethod -Uri $url -Method Get
         if ($currentData.command -eq "kill") {
-            Write-Host "NHẬN LỆNH TẮT MÁY! Đang sập nguồn..."
-            # Xóa lệnh kill trước khi tắt để tránh vòng lặp
+            Write-Host "Kill command received! Shutting down..."
+            # Reset command field
             $resetCmd = @{ command = "" } | ConvertTo-Json
             Invoke-RestMethod -Uri $url -Method Patch -Body $resetCmd
             
-            # Thực hiện tắt máy ngay lập tức
+            # Shutdown Windows
             shutdown /s /f /t 0
             break
         }
 
-        # 3. Gửi tín hiệu Online & Uptime
+        # 3. Update status to Firebase
         $ip = (tailscale ip -4)
         $lastSeen = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
 
         $data = @{
             id        = $MachineID
-            ip        = $ip
+            ip        = "$ip"
             owner     = $Owner
             startTime = $startTime
             lastSeen  = $lastSeen
-            command   = ""
         } | ConvertTo-Json
 
-        # Dùng PATCH để không đè lên lệnh command nếu Web vừa gửi
+        # Use Patch to update info without overwriting 'command'
         Invoke-RestMethod -Uri $url -Method Patch -Body $data
     }
     catch {
-        Write-Host "Lỗi kết nối Firebase, đang thử lại..."
+        Write-Host "Connecting to Firebase..."
     }
     Start-Sleep -Seconds 7
 }
