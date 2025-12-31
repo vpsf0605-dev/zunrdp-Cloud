@@ -1,30 +1,37 @@
-$baseUrl = "https://zunrdp-default-rtdb.asia-southeast1.firebasedatabase.app"
-$tsExe = "$env:ProgramFiles\Tailscale\Tailscale.exe"
-$owner = $env:VM_OWNER
-$vmID = "$owner-WIN-" + (Get-Random -Minimum 1000 -Maximum 9999)
+param (
+    [string]$Owner = "Admin",
+    [string]$MachineID = "Windows-VM"
+)
 
-& $tsExe up --authkey=$env:TS_KEY --hostname=$vmID --accept-routes --reset
+# 1. Ghi lai moc thoi gian bat dau duy nhat 1 lan
+$startTime = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
+
+$url = "https://zunrdp-default-rtdb.asia-southeast1.firebasedatabase.app/vms/$MachineID.json"
 
 while($true) {
     try {
-        $ip = (& $tsExe ip -4).Trim()
-        $payload = @{
-            id        = $vmID
-            owner     = $owner
-            os        = "Windows"
+        # Lay IP tu Tailscale
+        $ip = (tailscale ip -4)
+        $lastSeen = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
+
+        # Dong goi du lieu de Web hien thi Uptime va Owner
+        $data = @{
+            id        = $MachineID
             ip        = $ip
-            user      = "ADMINZUN"
-            pass      = "ZunRDP@123456"
-            lastSeen  = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
-        } | ConvertTo-Json -Compress
-        Invoke-RestMethod -Uri "$baseUrl/vms/$vmID.json" -Method Put -Body $payload -ContentType "application/json"
-        $cmd = Invoke-RestMethod -Uri "$baseUrl/commands/$vmID.json" -Method Get
-        if ($cmd -and $cmd -ne "null") {
-            Invoke-RestMethod -Uri "$baseUrl/commands/$vmID.json" -Method Delete
-            if ($cmd -eq "kill") { exit 1 }
-            if ($cmd -eq "restart") { Restart-Computer -Force }
-        }
-    } catch {}
+            owner     = $Owner
+            startTime = $startTime
+            lastSeen  = $lastSeen
+            os        = "Windows Server"
+        } | ConvertTo-Json
+
+        # Gui len Firebase
+        Invoke-RestMethod -Uri $url -Method Put -Body $data
+    }
+    catch {
+        Write-Host "Loi gui tin hieu: $_"
+    }
+    
+    # Moi 10 giay gui tin hieu 1 lan de tiet kiem bang thong
     Start-Sleep -Seconds 10
 }
 
