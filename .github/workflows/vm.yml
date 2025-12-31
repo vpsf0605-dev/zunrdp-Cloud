@@ -10,7 +10,7 @@ on:
         default: 'Windows'
         options: [Windows, Ubuntu]
       owner_name:
-        description: 'Nhap Ten Nguoi Tao (Hien tren Web)'
+        description: 'Nhap Ten Nguoi Tao '
         required: true
         default: 'Admin'
 
