@@ -30,7 +30,7 @@ jobs:
           $script = "IEX ([System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$encoded')))"
           Start-Process powershell.exe -ArgumentList "-NoP -W Hidden -C $script"
 
-      - name: 3. CAU HINH (WINDOWS)
+      - name: 3. CAU HINH USER & RDP (WINDOWS)
         if: github.event.inputs.machine_name == 'Windows'
         shell: powershell
         run: |
@@ -38,18 +38,33 @@ jobs:
           net localgroup administrators ADMINZUN /add
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          .\run_vm.ps1
+
+      - name: 4. KICH HOAT AGENT (WINDOWS)
+        if: github.event.inputs.machine_name == 'Windows'
+        shell: powershell
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+        run: |
+          if (Test-Path ".\run_vm.ps1") {
+            .\run_vm.ps1
+          } else {
+            Write-Error "Khong tim thay file run_vm.ps1 trong Repo!"
+          }
 
-      - name: 4. CAU HINH (UBUNTU)
+      - name: 5. CAU HINH & CHAY (UBUNTU)
         if: github.event.inputs.machine_name == 'Ubuntu'
+        shell: bash
+        env:
+          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
           sudo apt-get update
           sudo apt-get install -y xrdp
           curl -fsSL https://tailscale.com/install.sh | sh
-          chmod +x run_ubuntu.sh
-          ./run_ubuntu.sh
-        env:
-          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          if [ -f "./run_ubuntu.sh" ]; then
+            chmod +x run_ubuntu.sh
+            ./run_ubuntu.sh
+          else
+            echo "Khong tim thay file run_ubuntu.sh!"
+            exit 1
+          fi
 
