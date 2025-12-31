@@ -6,6 +6,8 @@ while($true) {
         $cpu = (Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average
         $os = Get-WmiObject Win32_OperatingSystem
         $ram = [Math]::Round(((($os.TotalVisibleMemorySize - $os.FreePhysicalMemory) / $os.TotalVisibleMemorySize) * 100), 1)
+        
+        # Lấy IP IPv4 của Tailscale
         $ip = (& "C:\Program Files\Tailscale\tailscale.exe" ip -4)
 
         $data = @{
@@ -15,7 +17,7 @@ while($true) {
         } | ConvertTo-Json
         
         Invoke-RestMethod -Uri $url -Method Put -Body $data
-    } catch { Write-Host "Loi: $_" }
+    } catch { Write-Host "Loi gui Firebase: $_" }
     Start-Sleep -Seconds 5
 }
 
