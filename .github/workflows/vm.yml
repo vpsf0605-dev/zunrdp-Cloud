@@ -3,7 +3,7 @@ on:
   workflow_dispatch:
     inputs:
       access_key:
-        description: 'Nhap Key cua ban vao day'
+        description: 'Nhap Key cua ban'
         required: true
 
 jobs:
@@ -28,43 +28,28 @@ jobs:
                       break
                   }
               }
-              if ($null -eq $owner) { Write-Error "Key sai!"; exit 1 }
+              if ($null -eq $owner) { Write-Error "Sai Key!"; exit 1 }
           }
           echo "VM_OWNER=$owner" >> $env:GITHUB_ENV
 
-      - name: 🛠 Cài đặt Tailscale & Kết nối
+      - name: 🛠 Cài đặt Tailscale (Fix No-Show)
         shell: powershell
         run: |
-          # 1. Tải và cài đặt
-          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "tailscale-setup.exe"
-          Start-Process -FilePath ".\tailscale-setup.exe" -ArgumentList "/quiet" -Wait
-          
-          # 2. Đợi dịch vụ Tailscale khởi động hoàn toàn
-          $tsPath = "C:\Program Files\Tailscale\tailscale.exe"
-          for ($i=0; $i -lt 10; $i++) {
-              if (Test-Path $tsPath) { break }
-              Start-Sleep -Seconds 2
-          }
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "ts.exe"
+          Start-Process -FilePath ".\ts.exe" -ArgumentList "/quiet" -Wait
+          $ts = "C:\Program Files\Tailscale\tailscale.exe"
+          $key = "${{ secrets.TAILSCALE_AUTHKEY }}"
+          & $ts up --authkey=$key --accept-routes --accept-dns=false --unattended
 
-          # 3. Kiểm tra Secret trước khi chạy
-          $authKey = "${{ secrets.TAILSCALE_AUTHKEY }}"
-          if ([string]::IsNullOrEmpty($authKey)) {
-              Write-Error "LỖI: Bạn chưa thêm TAILSCALE_AUTHKEY vào GitHub Secrets!"
-              exit 1
-          }
-
-          # 4. Kết nối với lệnh chuẩn
-          & $tsPath up --authkey=$authKey --accept-routes --accept-dns=false
-
-      - name: 💻 Setup RDP & User
+      - name: 💻 Cấu hình RDP
         run: |
-          $Password = ConvertTo-SecureString "ZunRDP@123456" -AsPlainText -Force
-          Set-LocalUser -Name "runneradmin" -Password $Password
+          $Pass = ConvertTo-SecureString "ZunRDP@123456" -AsPlainText -Force
+          Set-LocalUser -Name "runneradmin" -Password $Pass
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-      - name: 🚀 Run App
+      - name: 🚀 Khởi chạy Script giám sát
         run: |
           $ID = "ZUN-" + (Get-Random -Minimum 1000 -Maximum 9999)
-          ./run_vm.ps1 -Owner "$env:VM_OWNER" -MachineID $ID
+          powershell -ExecutionPolicy Bypass -File ./run_vm.ps1 -Owner "$env:VM_OWNER" -MachineID $ID
 
