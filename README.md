@@ -1,41 +1,79 @@
-# 🛡️ HƯỚNG DẪN CẤU HÌNH TAILSCALE TOKEN
+# <img src="https://raw.githubusercontent.com/Tarikul-Islam-Anik/Animated-Fluent-Emojis/master/Emojis/Objects/Cloud.png" alt="Cloud" width="40" height="40" /> ZUNRDP CLOUD INFRASTRUCTURE
 
-Để các máy ảo (ZUN-WIN, ZUN-UBUNTU) có thể hiển thị IP và trạng thái lên trang quản trị ZUNRDP, bạn cần nhập mã kết nối (Auth Key) của Tailscale vào GitHub.
-
----
-
-### Bước 1: Lấy Auth Key từ Tailscale
-1. Truy cập vào **[Tailscale Admin Console](https://login.tailscale.com/admin/settings/keys)**.
-2. Nhấn nút **Generate auth key...**.
-3. **Cấu hình quan trọng:**
-   - **Reusable:** Bật (Để dùng được cho nhiều máy ảo cùng lúc).
-   - **Ephemeral:** Bật (Để máy tự xóa khỏi danh sách khi bạn ngắt máy).
-   - **Pre-authorized:** Bật.
-4. Nhấn **Generate key** và **SAO CHÉP** mã có dạng `tskey-auth-xxxx...`.
+<p align="center">
+  <img src="https://img.shields.io/badge/Version-2.0.0-blue?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Security-Firebase_Encrypted-orange?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/OS-Windows_Server_2022-0078D4?style=for-the-badge&logo=windows" />
+</p>
 
 ---
 
-### Bước 2: Nhập Token vào GitHub (Secrets)
-Để bảo mật, bạn không dán trực tiếp mã vào code mà phải dán vào phần ẩn của GitHub:
-1. Truy cập vào kho lưu trữ (Repository) của bạn trên GitHub (Ví dụ: `zunrdp-Cloud`).
-2. Nhấn vào mục **Settings** (Bánh răng) trên thanh menu.
-3. Ở cột bên trái, tìm mục **Secrets and variables** -> Chọn **Actions**.
-4. Nhấn nút **New repository secret** (Nút màu xanh).
-5. Nhập thông tin như sau:
-   - **Name:** `TAILSCALE_AUTH_KEY`
-   - **Secret:** (Dán mã `tskey-auth-xxxx...` bạn vừa copy ở Bước 1 vào đây).
-6. Nhấn **Add secret** để lưu lại.
+## 📖 GIỚI THIỆU
+**ZunRDP Cloud** là giải pháp quản trị máy ảo (VPS) tự động hóa tối ưu trên nền tảng GitHub Actions. Hệ thống cho phép người dùng đăng ký, quản lý và sử dụng Windows VM với quyền **Administrator** cao nhất thông qua giao diện Web Panel hiện đại.
+
+📍 **Truy cập ngay:** [https://vpsf0605-dev.github.io/zunrdp-admin/](https://vpsf0605-dev.github.io/zunrdp-admin/)
 
 ---
 
-### Bước 3: Kiểm tra kết nối
-1. Sau khi nhập Secret, bạn quay lại tab **Actions** và chạy thử một Workflow (Ví dụ: chạy máy Windows).
-2. Máy ảo sẽ tự động dùng mã này để đăng nhập vào mạng Tailscale.
-3. Khi máy ảo hiện thông báo "Success", địa chỉ IP của máy sẽ tự động được gửi về trang quản trị `zunrdp-admin` của bạn.
+## 🛠️ TÍNH NĂNG ĐẶC SẮC
+* 👑 **Full Admin Access:** Máy ảo được kích hoạt sẵn tài khoản `Administrator`.
+* 🔐 **Key-Based Auth:** Hệ thống xác thực thông minh dựa trên mã Key nội bộ.
+* 📈 **Live Monitoring:** Theo dõi hiệu năng CPU, RAM và trạng thái Online/Offline theo thời gian thực.
+* ☁️ **High Speed:** Hạ tầng băng thông cao từ GitHub Actions, hỗ trợ Tailscale Network.
 
 ---
 
-### ⚠️ Lưu ý bảo mật
-* **Tuyệt đối không** chia sẻ mã `tskey` này cho người khác.
-* Nếu mã hết hạn (thường là 90 ngày), bạn chỉ cần vào Tailscale tạo mã mới và cập nhật lại vào mục **Secrets** trên GitHub là xong.
-* 
+## 🔑 HƯỚNG DẪN KẾT NỐI (RDP)
+
+Sau khi máy ảo chuyển sang trạng thái **Online** trên Panel, hãy sử dụng các thông tin sau để kết nối:
+
+
+
+| Hạng mục | Thông tin chi tiết |
+| :--- | :--- |
+| **User (Tài khoản)** | `Administrator` |
+| **Pass (Mật khẩu)** | `ZunRDP@123456` |
+| **Port (Cổng)** | `3389` |
+| **IP Address** | *Lấy từ mục IP trên Web Panel* |
+
+---
+
+## 🚀 QUY TRÌNH VẬN HÀNH
+
+
+
+### 1️⃣ Đối với Thành viên
+* **Đăng ký:** Tạo tài khoản tại trang login.
+* **Xác thực:** Gửi tên tài khoản cho Admin để nhận **Mã Token** (Key).
+* **Khởi tạo:** Dán Key vào ô xác thực trên Web để kích hoạt máy ảo.
+
+### 2️⃣ Đối với Quản trị viên
+* **Đăng nhập:** Truy cập bằng tài khoản Admin (Bảo mật).
+* **Quản lý:** Nhấn vào biểu tượng vương miện để xem danh sách User và cấp mã Key.
+
+---
+
+## ⚙️ CẤU HÌNH HỆ THỐNG (DEVELOPER)
+Để hệ thống tự động nhận diện và cấp quyền chính xác, cấu trúc dữ liệu được đồng bộ hóa như sau:
+
+* **Firebase:** Lưu trữ tại node `/users` (Thông tin Key) và `/vms` (Thông tin máy ảo).
+* **GitHub Actions:** Workflow xác thực Key và tìm `Owner` tương ứng từ Firebase trước khi cài đặt hệ điều hành.
+
+---
+
+## ⚠️ LƯU Ý BẢO MẬT
+* Không chia sẻ **Mã Key** cá nhân cho bất kỳ ai.
+* Tài khoản `Administrator` có toàn quyền thay đổi hệ thống, hãy cẩn trọng khi cài đặt phần mềm lạ.
+* Máy ảo sẽ tự động hủy sau khi hết thời gian chạy quy định của GitHub (6 tiếng).
+
+---
+
+<p align="center">
+  <b>Phát triển bởi ZunRdp</b><br>
+  <i>"Đơn giản hóa hạ tầng Cloud của bạn"</i>
+</p>
+
+<p align="center">
+  <img src="https://capsule-render.vercel.app/render?type=waving&color=0078D4&height=100&section=footer" />
+</p>
+
