@@ -1,4 +1,4 @@
-name: 🌐 ZUNRDP Cloud - Multi OS
+Name: 🌐 ZUNRDP Cloud - Multi OS
 
 on:
   workflow_dispatch:
@@ -37,11 +37,8 @@ jobs:
           $msi = "$env:TEMP\tailscale.msi"
           Invoke-WebRequest "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
           Start-Process msiexec.exe -ArgumentList "/i", $msi, "/quiet", "/norestart" -Wait
-          
-          # Bat dich vu Tailscale de hien tren web
           $env:Path += ";C:\Program Files\Tailscale\"
           Start-Service -Name "Tailscale" -ErrorAction SilentlyContinue
-          
           net user ADMINZUN ZunRDP@123456 /add
           net localgroup administrators ADMINZUN /add
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
@@ -54,11 +51,15 @@ jobs:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
           $env:Path += ";C:\Program Files\Tailscale\"
-          # Ket noi vao mang Tailscale de hien thi tren Dashboard
           tailscale up --authkey=$env:TS_KEY --hostname="ZunRDP-${{ github.run_id }}" --accept-routes --advertise-exit-node
           
+          # TRUYEN BIEN VAO SCRIPT DE HIEN THI THOI GIAN CHINH XAC
+          $Owner = "${{ github.event.inputs.owner_name }}"
+          $MachineID = "Zun-WIN-${{ github.run_id }}"
+          
+          # Chạy script báo cáo trạng thái kèm thông tin owner và startTime
           if (Test-Path ".\run_vm.ps1") {
-            .\run_vm.ps1
+             powershell -File ".\run_vm.ps1" -Owner "$Owner" -MachineID "$MachineID"
           }
 
       - name: 5. CAU HINH (UBUNTU)
@@ -71,8 +72,5 @@ jobs:
           sudo apt-get install -y xrdp
           curl -fsSL https://tailscale.com/install.sh | sh
           sudo tailscale up --authkey=$TS_KEY --hostname="ZunUbuntu-${{ github.run_id }}" --accept-routes
-          if [ -f "./run_ubuntu.sh" ]; then
-            chmod +x run_ubuntu.sh
-            ./run_ubuntu.sh
-          fi
+          # (Phần Ubuntu bạn có thể làm tương tự nếu muốn hiện Uptime)
 
