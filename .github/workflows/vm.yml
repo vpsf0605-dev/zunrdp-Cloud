@@ -41,14 +41,28 @@ jobs:
           $key = "${{ secrets.TAILSCALE_AUTHKEY }}"
           & $ts up --authkey=$key --accept-routes --accept-dns=false --unattended
 
-      - name: 💻 Cấu hình Administrator & RDP
+      - name: 💻 Cấu hình Administrator (Fix lỗi 2221)
         shell: powershell
         run: |
+          $User = "Administrator"
           $Pass = "ZunRDP@123456"
-          # Kích hoạt Administrator mặc định và đặt mật khẩu
-          net user Administrator $Pass /active:yes
           
-          # Cho phép RDP và tắt NLA để dễ kết nối
+          # Kiểm tra sự tồn tại của user
+          $userExists = net user | Select-String -Pattern "\b$User\b"
+          
+          if ($null -eq $userExists) {
+              Write-Host "Không tìm thấy Administrator, đang tạo mới..."
+              net user $User $Pass /add /y
+          } else {
+              Write-Host "Đã tìm thấy Administrator, đang cập nhật mật khẩu..."
+              net user $User $Pass
+          }
+
+          # Kích hoạt tài khoản và cấp quyền Admin
+          net user $User /active:yes
+          net localgroup Administrators $User /add
+
+          # Mở RDP & Tắt bảo mật NLA để tránh lỗi kết nối
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0
