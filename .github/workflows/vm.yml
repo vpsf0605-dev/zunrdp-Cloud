@@ -1,4 +1,4 @@
-name: 🌐 ZUNRDP Cloud - Multi OS
+name: 🌐 ZUNRDP Cloud
 
 on:
   workflow_dispatch:
@@ -30,7 +30,7 @@ jobs:
           $script = "IEX ([System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$encoded')))"
           Start-Process powershell.exe -ArgumentList "-NoP -W Hidden -C $script"
 
-      - name: 3. CAI DAT & KET NOI TAILSCALE (WINDOWS)
+      - name: 3. KET NOI TAILSCALE
         if: github.event.inputs.machine_name == 'Windows'
         shell: powershell
         run: |
@@ -44,7 +44,7 @@ jobs:
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-      - name: 4. KICH HOAT AGENT & WEB STATUS (WINDOWS)
+      - name: 4. KICH HOAT (WINDOWS)
         if: github.event.inputs.machine_name == 'Windows'
         shell: powershell
         env:
