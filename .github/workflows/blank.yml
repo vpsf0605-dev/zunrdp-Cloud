@@ -4,22 +4,28 @@ on:
   workflow_dispatch:
     inputs:
       machine_name:
-        description: 'Chon may: Windows hoac Ubuntu'
+        description: 'Chon he dieu hanh (Windows hoac Ubuntu)'
         required: true
         type: choice
         default: 'Windows'
         options:
           - Windows
           - Ubuntu
+      owner_name:
+        description: 'Nhap ten cua ban (De quan ly tren Web)'
+        required: true
+        default: 'User1'
 
 jobs:
   setup-vm:
     runs-on: ${{ github.event.inputs.machine_name == 'Windows' && 'windows-latest' || 'ubuntu-latest' }}
     timeout-minutes: 360
+    
     steps:
       - name: 1. LAY MA NGUON
-        uses: actions/checkout@v4
+        [span_2](start_span)uses: actions/checkout@v4[span_2](end_span)
 
+      # ================= CHAY TREN WINDOWS =================
       - name: 2. CAI TAILSCALE (WINDOWS)
         if: github.event.inputs.machine_name == 'Windows'
         shell: powershell
@@ -29,57 +35,42 @@ jobs:
           $msi = "$env:TEMP\tailscale.msi"
           Invoke-WebRequest "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
           Start-Process msiexec.exe -ArgumentList "/i", $msi, "/quiet", "/norestart" -Wait
-          Start-Sleep -Seconds 10
-          $tsExe = "$env:ProgramFiles\Tailscale\Tailscale.exe"
-          & $tsExe up --authkey=$env:TS_KEY --hostname=ZUN-WIN --accept-routes --reset
+          [span_3](start_span)Start-Sleep -Seconds 10[span_3](end_span)
 
-      - name: 3. THONG TIN KET NOI (WINDOWS)
-        if: github.event.inputs.machine_name == 'Windows'
-        shell: powershell
-        run: |
-          $tsExe = "$env:ProgramFiles\Tailscale\Tailscale.exe"
-          $ip = (& $tsExe ip -4).Trim()
-          Write-Host "==========================================" -ForegroundColor Green
-          Write-Host "   THONG TIN KET NOI RDP (WINDOWS)        " -ForegroundColor Cyan
-          Write-Host "==========================================" -ForegroundColor Green
-          Write-Host " IP TAILSCALE : $ip" -ForegroundColor Yellow
-          Write-Host " USERNAME     : ADMINZUN" -ForegroundColor Yellow
-          Write-Host " PASSWORD     : ZunRDP@123456" -ForegroundColor Yellow
-          Write-Host "==========================================" -ForegroundColor Green
-          Write-Host "Dung App Remote Desktop de ket noi."
-
-      - name: 4. CAU HINH RDP & CHAY SCRIPT (WINDOWS)
+      - name: 3. THIET LAP USER & RDP (WINDOWS)
         if: github.event.inputs.machine_name == 'Windows'
         shell: powershell
         run: |
           net user ADMINZUN ZunRDP@123456 /add
           net localgroup administrators ADMINZUN /add
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
-          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          .\run_vm.ps1
+          [span_4](start_span)Enable-NetFirewallRule -DisplayGroup "Remote Desktop"[span_4](end_span)
 
-      - name: 5. CAI TAILSCALE & RDP (UBUNTU)
+      - name: 4. KICH HOAT AGENT (WINDOWS)
+        if: github.event.inputs.machine_name == 'Windows'
+        shell: powershell
+        env:
+          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          VM_OWNER: ${{ github.event.inputs.owner_name }}
+        run: |
+          [span_5](start_span)[span_6](start_span).\run_vm.ps1[span_5](end_span)[span_6](end_span)
+
+      # ================= CHAY TREN UBUNTU =================
+      - name: 5. CAI DAT MOI TRUONG (UBUNTU)
+        if: github.event.inputs.machine_name == 'Ubuntu'
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xrdp
+          [span_7](start_span)curl -fsSL https://tailscale.com/install.sh | sh[span_7](end_span)
+
+      - name: 6. KICH HOAT AGENT (UBUNTU)
         if: github.event.inputs.machine_name == 'Ubuntu'
         shell: bash
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
+          VM_OWNER: ${{ github.event.inputs.owner_name }}
         run: |
-          curl -fsSL https://tailscale.com/install.sh | sh
-          sudo tailscale up --authkey=$TS_KEY --hostname=ZUN-UBUNTU --accept-routes --reset
-          sudo apt-get update && sudo apt-get install -y xrdp
-          sudo useradd -m -s /bin/bash adminzun || true
-          echo "adminzun:ZunRDP@123456" | sudo chpasswd
-          sudo usermod -aG sudo adminzun
-          
-          IP=$(tailscale ip -4 | head -n 1)
-          echo "=========================================="
-          echo "   THONG TIN KET NOI RDP (UBUNTU)         "
-          echo "=========================================="
-          echo " IP TAILSCALE : $IP"
-          echo " USERNAME     : adminzun"
-          echo " PASSWORD     : ZunRDP@123456"
-          echo "=========================================="
-          
-          chmod +x ./run_ubuntu.sh
-          ./run_ubuntu.sh
-          
+          chmod +x run_ubuntu.sh
+          [span_8](start_span)./run_ubuntu.sh[span_8](end_span)
+
