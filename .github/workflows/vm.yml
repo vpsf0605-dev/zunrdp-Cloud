@@ -1,4 +1,4 @@
-Name: 🌐 ZUNRDP Cloud - Multi OS
+name: 🌐 ZUNRDP Cloud - Multi OS
 
 on:
   workflow_dispatch:
