@@ -6,7 +6,10 @@ on:
         description: 'He Dieu Hanh'
         default: 'Windows'
       owner_name:
-        description: 'key'
+        description: 'Ten tai khoan nguoi tao'
+        required: true
+      access_key:
+        description: 'Key xac thuc tai khoan'
         required: true
 
 jobs:
@@ -14,19 +17,43 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v3
+      
+      - name: 🔐 Xác thực Key từ Firebase
+        shell: powershell
+        run: |
+          $user = "${{ github.event.inputs.owner_name }}"
+          $inputKey = "${{ github.event.inputs.access_key }}"
+          $url = "https://zunrdp-default-rtdb.asia-southeast1.firebasedatabase.app/users/$user/key.json"
+          
+          $realKey = Invoke-RestMethod -Uri $url -Method Get
+          
+          if ($null -eq $realKey) {
+              Write-Error "❌ Tai khoan khong ton tai hoac chua duoc cap Key!"
+              exit 1
+          }
+          
+          if ($inputKey -eq $realKey) {
+              Write-Host "✅ Xac thuc thanh cong cho nguoi dung: $user"
+          } else {
+              Write-Error "❌ Sai Key! Ban khong co quyen tao VM."
+              exit 1
+          }
+
       - name: Setup Tailscale
         run: |
           Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "tailscale.exe"
           Start-Process -FilePath ".\tailscale.exe" -ArgumentList "/quiet" -Wait
           & "C:\Program Files\Tailscale\tailscale.exe" up --authkey ${{ secrets.TAILSCALE_AUTHKEY }}
+
       - name: Setup RDP
         run: |
           $Password = ConvertTo-SecureString "ZunRDP@123456" -AsPlainText -Force
           Set-LocalUser -Name "runneradmin" -Password $Password
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-      - name: Run App
+
+      - name: Run App giam sat
         run: |
           $ID = "ZUN-" + (Get-Random -Minimum 1000 -Maximum 9999)
           ./run_vm.ps1 -Owner "${{ github.event.inputs.owner_name }}" -MachineID $ID
-          
+
