@@ -32,7 +32,7 @@ jobs:
           }
           echo "VM_OWNER=$owner" >> $env:GITHUB_ENV
 
-      - name: 🛠 Cài đặt Tailscale (Fix No-Show)
+      - name: 🛠 Cài đặt Tailscale
         shell: powershell
         run: |
           Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "ts.exe"
@@ -41,15 +41,20 @@ jobs:
           $key = "${{ secrets.TAILSCALE_AUTHKEY }}"
           & $ts up --authkey=$key --accept-routes --accept-dns=false --unattended
 
-      - name: 💻 Cấu hình RDP
+      - name: 💻 Cấu hình Administrator & RDP
+        shell: powershell
         run: |
-          $Pass = ConvertTo-SecureString "ZunRDP@123456" -AsPlainText -Force
-          Set-LocalUser -Name "runneradmin" -Password $Pass
+          $Pass = "ZunRDP@123456"
+          # Kích hoạt Administrator mặc định và đặt mật khẩu
+          net user Administrator $Pass /active:yes
+          
+          # Cho phép RDP và tắt NLA để dễ kết nối
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp' -Name "UserAuthentication" -Value 0
 
       - name: 🚀 Khởi chạy Script giám sát
         run: |
           $ID = "ZUN-" + (Get-Random -Minimum 1000 -Maximum 9999)
           powershell -ExecutionPolicy Bypass -File ./run_vm.ps1 -Owner "$env:VM_OWNER" -MachineID $ID
-
+          
