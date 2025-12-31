@@ -2,14 +2,8 @@ name: ZUNRDP Cloud
 on:
   workflow_dispatch:
     inputs:
-      machine_name:
-        description: 'He Dieu Hanh'
-        default: 'Windows'
-      owner_name:
-        description: 'Ten tai khoan nguoi tao'
-        required: true
       access_key:
-        description: 'Key xac thuc tai khoan'
+        description: 'Nhap Key cua ban vao day'
         required: true
 
 jobs:
@@ -18,26 +12,37 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       
-      - name: 🔐 Xác thực Key từ Firebase
+      - name: 🔐 Xác thực & Tìm chủ sở hữu
         shell: powershell
         run: |
-          $user = "${{ github.event.inputs.owner_name }}"
           $inputKey = "${{ github.event.inputs.access_key }}"
-          $url = "https://zunrdp-default-rtdb.asia-southeast1.firebasedatabase.app/users/$user/key.json"
           
-          $realKey = Invoke-RestMethod -Uri $url -Method Get
-          
-          if ($null -eq $realKey) {
-              Write-Error "❌ Tai khoan khong ton tai hoac chua duoc cap Key!"
-              exit 1
-          }
-          
-          if ($inputKey -eq $realKey) {
-              Write-Host "✅ Xac thuc thanh cong cho nguoi dung: $user"
+          # 1. Kiểm tra nếu là Key Admin tối cao
+          if ($inputKey -eq "ADMIN-MASTER") {
+              $owner = "ZunRdp"
+              Write-Host "✅ Chao Admin ZunRdp!"
           } else {
-              Write-Error "❌ Sai Key! Ban khong co quyen tao VM."
-              exit 1
+              # 2. Nếu không phải Admin, quét toàn bộ danh sách User trên Firebase để tìm xem Key này của ai
+              $usersUrl = "https://zunrdp-default-rtdb.asia-southeast1.firebasedatabase.app/users.json"
+              $allUsers = Invoke-RestMethod -Uri $usersUrl -Method Get
+              
+              $owner = $null
+              foreach ($username in $allUsers.PSObject.Properties.Name) {
+                  if ($allUsers.$username.key -eq $inputKey) {
+                      $owner = $username
+                      break
+                  }
+              }
+              
+              if ($null -eq $owner) {
+                  Write-Error "❌ Key nay khong ton tai hoac da bi thu hoi!"
+                  exit 1
+              }
+              Write-Host "✅ Xac thuc thanh cong! Chu so huu: $owner"
           }
+          
+          # Lưu tên chủ sở hữu vào biến môi trường để dùng cho bước sau
+          echo "VM_OWNER=$owner" >> $env:GITHUB_ENV
 
       - name: Setup Tailscale
         run: |
@@ -52,8 +57,9 @@ jobs:
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-      - name: Run App giam sat
+      - name: Run App
         run: |
           $ID = "ZUN-" + (Get-Random -Minimum 1000 -Maximum 9999)
-          ./run_vm.ps1 -Owner "${{ github.event.inputs.owner_name }}" -MachineID $ID
-
+          # Sử dụng biến $env:VM_OWNER đã tìm thấy ở bước trên
+          ./run_vm.ps1 -Owner "$env:VM_OWNER" -MachineID $ID
+          
