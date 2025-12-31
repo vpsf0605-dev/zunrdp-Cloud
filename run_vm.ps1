@@ -1,5 +1,5 @@
 param (
-    [string]$Owner = "Admin",
+    [string]$Owner = "Admin", # Tên tài khoản thành viên
     [string]$MachineID = "Zun-VM"
 )
 
@@ -8,7 +8,7 @@ $url = "https://zunrdp-default-rtdb.asia-southeast1.firebasedatabase.app/vms/$Ma
 
 while($true) {
     try {
-        # 1. Kiểm tra lệnh từ Admin
+        # Kiểm tra lệnh tắt máy từ Web
         $current = Invoke-RestMethod -Uri $url -Method Get
         if ($current.command -eq "kill") {
             Invoke-RestMethod -Uri $url -Method Patch -Body (@{ command = "" } | ConvertTo-Json)
@@ -16,16 +16,15 @@ while($true) {
             break
         }
 
-        # 2. Lấy thông số CPU & RAM thực tế
+        # Lấy CPU & RAM
         $cpu = (Get-WmiObject Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average
         $ram = Get-WmiObject Win32_OperatingSystem
         $ramUsage = [Math]::Round(((($ram.TotalVisibleMemorySize - $ram.FreePhysicalMemory) / $ram.TotalVisibleMemorySize) * 100), 1)
 
-        # 3. Gửi dữ liệu về Firebase
         $data = @{
             id        = $MachineID
             ip        = (tailscale ip -4)
-            owner     = $Owner
+            owner     = $Owner # Gắn máy ảo với tài khoản người dùng
             startTime = $startTime
             lastSeen  = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
             cpu       = [Math]::Round($cpu, 1)
@@ -34,8 +33,7 @@ while($true) {
         } | ConvertTo-Json
 
         Invoke-RestMethod -Uri $url -Method Patch -Body $data
-    }
-    catch { Write-Host "System monitoring..." }
+    } catch { }
     Start-Sleep -Seconds 5
 }
 
