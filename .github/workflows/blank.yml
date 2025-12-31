@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       machine_name:
-        description: 'Chon he dieu hanh (Windows hoac Ubuntu)'
+        description: 'Chọn hệ điều hành'
         required: true
         type: choice
         default: 'Windows'
@@ -12,7 +12,7 @@ on:
           - Windows
           - Ubuntu
       owner_name:
-        description: 'Nhap ten cua ban (De quan ly tren Web)'
+        description: 'Nhập tên của bạn (Để quản lý trên Web)'
         required: true
         default: 'User1'
 
@@ -23,28 +23,26 @@ jobs:
     
     steps:
       - name: 1. LAY MA NGUON
-        [span_2](start_span)uses: actions/checkout@v4[span_2](end_span)
+        uses: actions/checkout@v4
 
-      # ================= CHAY TREN WINDOWS =================
+      # ================= CHẠY TRÊN WINDOWS =================
       - name: 2. CAI TAILSCALE (WINDOWS)
         if: github.event.inputs.machine_name == 'Windows'
         shell: powershell
-        env:
-          TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
         run: |
           $msi = "$env:TEMP\tailscale.msi"
           Invoke-WebRequest "https://pkgs.tailscale.com/stable/tailscale-setup-latest-amd64.msi" -OutFile $msi
           Start-Process msiexec.exe -ArgumentList "/i", $msi, "/quiet", "/norestart" -Wait
-          [span_3](start_span)Start-Sleep -Seconds 10[span_3](end_span)
+          Start-Sleep -Seconds 10
 
-      - name: 3. THIET LAP USER & RDP (WINDOWS)
+      - name: 3. CAU HINH RDP & USER (WINDOWS)
         if: github.event.inputs.machine_name == 'Windows'
         shell: powershell
         run: |
           net user ADMINZUN ZunRDP@123456 /add
           net localgroup administrators ADMINZUN /add
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
-          [span_4](start_span)Enable-NetFirewallRule -DisplayGroup "Remote Desktop"[span_4](end_span)
+          Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
       - name: 4. KICH HOAT AGENT (WINDOWS)
         if: github.event.inputs.machine_name == 'Windows'
@@ -53,16 +51,16 @@ jobs:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
           VM_OWNER: ${{ github.event.inputs.owner_name }}
         run: |
-          [span_5](start_span)[span_6](start_span).\run_vm.ps1[span_5](end_span)[span_6](end_span)
+          .\run_vm.ps1
 
-      # ================= CHAY TREN UBUNTU =================
+      # ================= CHẠY TRÊN UBUNTU =================
       - name: 5. CAI DAT MOI TRUONG (UBUNTU)
         if: github.event.inputs.machine_name == 'Ubuntu'
         shell: bash
         run: |
           sudo apt-get update
           sudo apt-get install -y xrdp
-          [span_7](start_span)curl -fsSL https://tailscale.com/install.sh | sh[span_7](end_span)
+          curl -fsSL https://tailscale.com/install.sh | sh
 
       - name: 6. KICH HOAT AGENT (UBUNTU)
         if: github.event.inputs.machine_name == 'Ubuntu'
@@ -72,5 +70,5 @@ jobs:
           VM_OWNER: ${{ github.event.inputs.owner_name }}
         run: |
           chmod +x run_ubuntu.sh
-          [span_8](start_span)./run_ubuntu.sh[span_8](end_span)
+          ./run_ubuntu.sh
 
