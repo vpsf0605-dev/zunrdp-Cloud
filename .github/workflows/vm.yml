@@ -15,35 +15,24 @@ jobs:
   deploy:
     runs-on: windows-latest
     steps:
-      - name: 1. Tai Code ve may ao
+      - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: 2. Cai dat Tailscale (Tao IP mang noi bo)
-        shell: powershell
+      - name: Setup Tailscale
         run: |
           Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "tailscale-setup.exe"
           Start-Process -FilePath ".\tailscale-setup.exe" -ArgumentList "/quiet" -Wait
-          # Dung Secret de ket noi, neu chua co secret may se khong co IP
           & "C:\Program Files\Tailscale\tailscale.exe" up --authkey ${{ secrets.TAILSCALE_AUTHKEY }}
 
-      - name: 3. Cau hinh Windows (User/Pass & RDP)
-        shell: powershell
+      - name: Setup RDP
         run: |
-          # Tao User: ADMINZUN - Pass: ZunRDP@123456 nhu tren Web
           $Password = ConvertTo-SecureString "ZunRDP@123456" -AsPlainText -Force
           Set-LocalUser -Name "runneradmin" -Password $Password
-          
-          # Bat tinh nang Remote Desktop
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name "fDenyTSConnections" -Value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
-          Write-Host "Cau hinh Windows hoan tat!"
 
-      - name: 4. Chay Agent Giam sat & Gui du lieu ve Web
-        shell: powershell
+      - name: Run Agent
         run: |
-          # Tao ID may ngau nhien de khong bi trung tren Web
           $RandomID = "Zun-" + (Get-Random -Minimum 1000 -Maximum 9999)
-          
-          # Chay file ps1 voi Owner duoc truyen tu Web sang
           ./run_vm.ps1 -Owner "${{ github.event.inputs.owner_name }}" -MachineID $RandomID
-
+          
