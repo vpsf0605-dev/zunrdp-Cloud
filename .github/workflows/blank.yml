@@ -4,28 +4,24 @@ on:
   workflow_dispatch:
     inputs:
       machine_name:
-        description: 'Chọn hệ điều hành'
+        description: 'Chon He Dieu Hanh'
         required: true
         type: choice
         default: 'Windows'
-        options:
-          - Windows
-          - Ubuntu
+        options: [Windows, Ubuntu]
       owner_name:
-        description: 'Nhập tên của bạn (Để quản lý trên Web)'
+        description: 'Nhap Ten Nguoi Tao (Hien tren Web)'
         required: true
-        default: 'User1'
+        default: 'Admin'
 
 jobs:
   setup-vm:
     runs-on: ${{ github.event.inputs.machine_name == 'Windows' && 'windows-latest' || 'ubuntu-latest' }}
     timeout-minutes: 360
-    
     steps:
       - name: 1. LAY MA NGUON
         uses: actions/checkout@v4
 
-      # ================= CHẠY TRÊN WINDOWS =================
       - name: 2. CAI TAILSCALE (WINDOWS)
         if: github.event.inputs.machine_name == 'Windows'
         shell: powershell
@@ -35,7 +31,7 @@ jobs:
           Start-Process msiexec.exe -ArgumentList "/i", $msi, "/quiet", "/norestart" -Wait
           Start-Sleep -Seconds 10
 
-      - name: 3. CAU HINH RDP & USER (WINDOWS)
+      - name: 3. CAU HINH RDP (WINDOWS)
         if: github.event.inputs.machine_name == 'Windows'
         shell: powershell
         run: |
@@ -44,16 +40,14 @@ jobs:
           Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -value 0
           Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-      - name: 4. KICH HOAT AGENT (WINDOWS)
+      - name: 4. CHAY AGENT (WINDOWS)
         if: github.event.inputs.machine_name == 'Windows'
         shell: powershell
         env:
           TS_KEY: ${{ secrets.TAILSCALE_AUTH_KEY }}
           VM_OWNER: ${{ github.event.inputs.owner_name }}
-        run: |
-          .\run_vm.ps1
+        run: .\run_vm.ps1
 
-      # ================= CHẠY TRÊN UBUNTU =================
       - name: 5. CAI DAT MOI TRUONG (UBUNTU)
         if: github.event.inputs.machine_name == 'Ubuntu'
         shell: bash
@@ -62,7 +56,7 @@ jobs:
           sudo apt-get install -y xrdp
           curl -fsSL https://tailscale.com/install.sh | sh
 
-      - name: 6. KICH HOAT AGENT (UBUNTU)
+      - name: 6. CHAY AGENT (UBUNTU)
         if: github.event.inputs.machine_name == 'Ubuntu'
         shell: bash
         env:
