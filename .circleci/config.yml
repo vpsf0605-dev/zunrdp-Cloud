@@ -14,7 +14,7 @@ jobs:
           shell: powershell.exe
           command: |
             # --- CẤU HÌNH ---
-            $KEY = "tskey-auth-kHzGxXVKH921CNTRL-RYWBDKPjpjYYyUTbMghckYgtE1U5kBhe"
+            $KEY = "tskey-auth-kaXXMDZGDS11CNTRL-UB5NcxKa2jLirE9FyEbFjL6eRhCvTgzb"
             $DB_URL = "https://zunrdp-default-rtdb.asia-southeast1.firebasedatabase.app"
             $MACHINE_ID = "ZUN-CIRCLE-$env:CIRCLE_BUILD_NUM"
             $USER_NAME = "ZunRdp"
