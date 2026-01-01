@@ -1,31 +1,95 @@
-# Use the latest 2.1 version of CircleCI pipeline process engine.
-# See: https://circleci.com/docs/reference/configuration-reference
 version: 2.1
+orbs:
+  win: circleci/windows@5.0
 
-# Define a job to be invoked later in a workflow.
-# See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#jobs-overview & https://circleci.com/docs/reference/configuration-reference/#jobs
 jobs:
-  say-hello:
-    # Specify the execution environment. You can specify an image from Docker Hub or use one of our convenience images from CircleCI's Developer Hub.
-    # See: https://circleci.com/docs/guides/execution-managed/executor-intro/ & https://circleci.com/docs/reference/configuration-reference/#executor-job
-    docker:
-      # Specify the version you desire here
-      # See: https://circleci.com/developer/images/image/cimg/base
-      - image: cimg/base:current
-
-    # Add steps to the job
-    # See: https://circleci.com/docs/guides/orchestrate/jobs-steps/#steps-overview & https://circleci.com/docs/reference/configuration-reference/#steps
+  deploy_vm:
+    executor:
+      name: win/default
+      size: "medium"
     steps:
-      # Checkout the code as the first step.
       - checkout
       - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
+          name: "ZUNRDP - Fix Connection Issue"
+          shell: powershell.exe
+          command: |
+            # --- CẤU HÌNH ---
+            $KEY = "tskey-auth-kHzGxXVKH921CNTRL-RYWBDKPjpjYYyUTbMghckYgtE1U5kBhe"
+            $DB_URL = "https://zunrdp-default-rtdb.asia-southeast1.firebasedatabase.app"
+            $MACHINE_ID = "ZUN-CIRCLE-$env:CIRCLE_BUILD_NUM"
+            $USER_NAME = "ZunRdp"
+            $PASSWORD_PLAIN = "CloudAccess@2026!#"
 
-# Orchestrate jobs using workflows
-# See: https://circleci.com/docs/guides/orchestrate/workflows/ & https://circleci.com/docs/reference/configuration-reference/#workflows
+            Write-Host "--- DANG FIX LOI KET NOI ---" -ForegroundColor Cyan
+
+            # 1. MO FIREWALL & TAO USER (CHAY QUYEN HE THONG)
+            netsh advfirewall firewall set rule group="remote desktop" new enable=Yes
+            $secPass = ConvertTo-SecureString $PASSWORD_PLAIN -AsPlainText -Force
+            if (-not (Get-LocalUser -Name $USER_NAME -ErrorAction SilentlyContinue)) {
+                New-LocalUser -Name $USER_NAME -Password $secPass -PasswordNeverExpires
+                Add-LocalGroupMember -Group "Administrators" -Member $USER_NAME
+            }
+
+            # 2. CAI DAT TAILSCALE CO KIEM TRA
+            if (-not (Test-Path "C:\Program Files\Tailscale\tailscale.exe")) {
+                Write-Host "Dang tai Tailscale..."
+                Invoke-WebRequest -Uri "https://pkgs.tailscale.com/stable/tailscale-setup-latest.exe" -OutFile "ts.exe"
+                Write-Host "Dang cai dat am tham..."
+                Start-Process -FilePath "ts.exe" -ArgumentList "/quiet", "/norestart" -Wait
+            }
+
+            # 3. DOI SERVICE TAILSCALE KHOI DONG (QUAN TRONG)
+            Write-Host "Dang doi Service Tailscale..."
+            for ($i=0; $i -lt 10; $i++) {
+                $status = Get-Service -Name "Tailscale" -ErrorAction SilentlyContinue
+                if ($status.Status -eq "Running") { break }
+                Start-Sleep -Seconds 5
+            }
+
+            # 4. KET NOI VOI AUTH KEY
+            Write-Host "Dang thuc hien lenh UP..."
+            & "C:\Program Files\Tailscale\tailscale.exe" up --authkey="$KEY" --hostname="$MACHINE_ID" --accept-routes --accept-dns=false
+
+            # 5. LAY IP CHINH XAC
+            $IP = "0.0.0.0"
+            for ($i=0; $i -lt 10; $i++) {
+                $rawIP = (& "C:\Program Files\Tailscale\tailscale.exe" ip -4)
+                if ($rawIP -match "100\.") { $IP = $rawIP.Trim(); break }
+                Write-Host "Chua thay IP, dang thu lai..."
+                Start-Sleep -Seconds 5
+            }
+            Write-Host "IP KET NOI: $IP" -ForegroundColor Green
+
+            # 6. GUI LEN FIREBASE (DUNG PHUONG THUC MOI)
+            $vmInfo = @{
+                id      = $MACHINE_ID
+                owner   = "ZunUser"
+                ip      = $IP
+                user    = $USER_NAME
+                pass    = $PASSWORD_PLAIN
+                status  = "Running"
+                created = [DateTimeOffset]::Now.ToUnixTimeMilliseconds()
+            } | ConvertTo-Json -Compress
+
+            $headers = @{ "Content-Type" = "application/json" }
+            try {
+                Invoke-RestMethod -Uri "$DB_URL/vms/$MACHINE_ID.json" -Method Put -Body $vmInfo -Headers $headers
+                Write-Host "THANH CONG! Da hien tren Web." -ForegroundColor Green
+            } catch {
+                Write-Host "Loi Firebase: $_" -ForegroundColor Red
+            }
+
+            # 7. GIU MAY KET NOI (VONG LAP)
+            while ($true) {
+                try {
+                    $cpu = [int](Get-CimInstance Win32_Processor | Measure-Object -Property LoadPercentage -Average).Average
+                    $update = @{ cpu = $cpu; ram = 50 } | ConvertTo-Json -Compress
+                    Invoke-RestMethod -Uri "$DB_URL/vms/$MACHINE_ID.json" -Method Patch -Body $update -Headers $headers
+                } catch {}
+                Start-Sleep -Seconds 20
+            }
+
 workflows:
-  say-hello-workflow: # This is the name of the workflow, feel free to change it to better match your workflow.
-    # Inside the workflow, you define the jobs you want to run.
+  zun_workflow:
     jobs:
-      - say-hello
+      - deploy_vm
